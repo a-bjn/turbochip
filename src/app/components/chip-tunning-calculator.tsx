@@ -9,6 +9,17 @@ interface Engine {
   torque: number
 }
 
+interface CarMake {
+  name: string
+}
+
+interface CarEngine {
+  id: number
+  name: string
+  horsepower: number
+  torque: number
+}
+
 export default function ChipTuningCalculator() {
   const [makes, setMakes] = useState<string[]>([])
   const [models, setModels] = useState<string[]>([])
@@ -26,8 +37,8 @@ export default function ChipTuningCalculator() {
     fetch('/api/makes')
       .then(res => res.json())
       .then(json => {
-        const list = (json.data as any[])
-          .map(item => item.name as string)
+        const list = (json.data as CarMake[])
+          .map(item => item.name)
           .sort()
         setMakes(list)
       })
@@ -50,18 +61,16 @@ export default function ChipTuningCalculator() {
   const fetchEngines = (make: string, model: string) => {
     setLoading(true)
     fetch(
-      `/api/engines?make=${encodeURIComponent(make)}&model=${encodeURIComponent(
-        model
-      )}`
+      `/api/engines?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`
     )
       .then(res => res.json())
       .then(json => {
-        const list = (json.data as any[]).map(e => ({
+        const list = (json.data as CarEngine[]).map(e => ({
           id: e.id,
           name: e.name,
           horsepower: e.horsepower,
           torque: e.torque,
-        })) as Engine[]
+        }))
         setEngines(list)
       })
       .catch(() => setError('Failed to load engines'))

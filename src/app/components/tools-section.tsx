@@ -33,9 +33,9 @@ export default function ToolsSection() {
             <FaBolt size={20} />
           </div>
           <h3 className="text-xl font-semibold mb-2">Chip Tuning Calculator</h3>
-          <p className="text-gray-400 mb-4">
+          <p>
             Discover the hidden potential of your engine with our advanced chip tuning calculator.
-            Get accurate estimates based on your car's specifications.
+            Get accurate estimates based on your car&apos;s specifications.
           </p>
           <a href="#tuning" className="text-yellow-400 font-medium hover:underline">
             Try it now →
@@ -48,9 +48,8 @@ export default function ToolsSection() {
           </div>
           <h3 className="text-xl font-semibold mb-2">AI Problem Solver</h3>
           <p className="text-gray-400 mb-4">
-            Describe your car's symptoms and our AI will diagnose potential issues and provide
-            solutions. Save time and money on unnecessary repairs.
-          </p>
+  {"Describe your car's symptoms and our AI will diagnose potential issues and provide solutions. Save time and money on unnecessary repairs."}
+</p>
           <a href="#diagnostics" className="text-yellow-400 font-medium hover:underline">
             Search now →
           </a>

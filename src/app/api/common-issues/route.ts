@@ -1,4 +1,3 @@
-// File: src/app/api/common-issues/route.ts
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
@@ -28,7 +27,8 @@ export async function POST(req: Request) {
     }))
 
     return NextResponse.json({ data })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error('Unknown error')
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

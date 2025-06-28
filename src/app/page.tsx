@@ -1,6 +1,5 @@
 import ChipTuningCalculator from "./components/chip-tunning-calculator";
 import CommonIssues from "./components/common-issues";
-import Header from "./components/header";
 import Hero from "./components/hero";
 import ToolsSection from "./components/tools-section";
 

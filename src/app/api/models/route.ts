@@ -1,8 +1,10 @@
-// File: src/app/api/models/route.ts
 import { NextResponse } from 'next/server'
 
+interface CarModel {
+  name: string
+}
+
 export async function GET(req: Request) {
-  // Extract 'make' from query parameters
   const url = new URL(req.url)
   const make = url.searchParams.get('make')
   if (!make) {
@@ -40,7 +42,7 @@ export async function GET(req: Request) {
     if (!Array.isArray(json.data)) {
       return NextResponse.json({ error: 'Invalid models format' }, { status: 500 })
     }
-    const models = json.data.map((item: any) => item.name)
+    const models = (json.data as CarModel[]).map(item => item.name)
 
     // 4️⃣ Return the names list
     return NextResponse.json({ data: models })

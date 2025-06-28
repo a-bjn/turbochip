@@ -1,5 +1,12 @@
-// File: src/app/api/engines/route.ts
 import { NextResponse } from 'next/server'
+
+interface CarApiEngine {
+  trim_id: string
+  trim: string
+  year: number
+  horsepower_hp: number
+  torque_ft_lbs: number
+}
 
 export async function GET(req: Request) {
   const url = new URL(req.url)
@@ -46,7 +53,7 @@ export async function GET(req: Request) {
     }
 
     // 3) Map to only the fields we need
-    const engines = json.data.map((e: any) => ({
+    const engines = (json.data as CarApiEngine[]).map((e) => ({
       id: e.trim_id,
       name: `${e.trim} (${e.year})`,
       horsepower: e.horsepower_hp,
@@ -54,9 +61,10 @@ export async function GET(req: Request) {
     }))
 
     return NextResponse.json({ data: engines })
-  } catch (err: any) {
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error('Unknown error')
     return NextResponse.json(
-      { error: 'Unexpected error', details: err.message },
+      { error: 'Unexpected error', details: error.message },
       { status: 500 }
     )
   }

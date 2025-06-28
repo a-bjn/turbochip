@@ -2,6 +2,15 @@
 
 import { useEffect, useState } from 'react'
 
+interface CarMake {
+  name: string
+}
+
+interface CarEngine {
+  id: number
+  name: string
+}
+
 interface Engine {
   id: number
   name: string
@@ -21,6 +30,7 @@ export default function CommonIssues() {
   const [make, setMake] = useState('')
   const [model, setModel] = useState('')
   const [engineId, setEngineId] = useState<number | ''>('')
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -29,8 +39,8 @@ export default function CommonIssues() {
     fetch('/api/makes')
       .then(r => r.json())
       .then(json => {
-        const list = (json.data as any[])
-          .map(i => i.name as string)
+        const list = (json.data as CarMake[])
+          .map(i => i.name)
           .sort()
         setMakes(list)
       })
@@ -61,13 +71,11 @@ export default function CommonIssues() {
       return
     }
     fetch(
-      `/api/engines?make=${encodeURIComponent(make)}&model=${encodeURIComponent(
-        model
-      )}`
+      `/api/engines?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`
     )
       .then(r => r.json())
       .then(json => {
-        const list = (json.data as any[]).map(e => ({
+        const list = (json.data as CarEngine[]).map(e => ({
           id: e.id,
           name: e.name,
         }))
@@ -88,12 +96,16 @@ export default function CommonIssues() {
     fetch('/api/common-issues', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ make, model, engine: engines.find(e => e.id === engineId)?.name })
+      body: JSON.stringify({
+        make,
+        model,
+        engine: engines.find(e => e.id === engineId)?.name
+      })
     })
       .then(r => r.json())
       .then(json => {
         if (json.error) throw new Error(json.error)
-        setIssues(json.data)
+        setIssues(json.data as Issue[])
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
