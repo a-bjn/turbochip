@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   try {
     // Step 1: Fetch the JWT token from our internal auth route
-    const tokenRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/auth/token`)
+    const tokenRes = await fetch(`${origin}/api/auth/token`)
     const tokenData = await tokenRes.json()
 
     if (!tokenRes.ok || !tokenData.token) {
