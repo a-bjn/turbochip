@@ -16,30 +16,44 @@ export async function POST(req: Request) {
     const chat = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: [
-        { role: 'system', content: 'You’re an automotive expert. Diagnose car issues.' },
-        { role: 'user', content: `Given the symptom: "${prompt}", reply in JSON with:
+        {
+          role: 'system',
+          content: 'You’re an automotive expert. Diagnose car issues.',
+        },
+        {
+          role: 'user',
+          content: `Given the symptom: "${prompt}", reply in JSON with:
 {
   "title": "<a brief issue title>",
   "urgency": "Low|Medium|High",
   "description": "<one-sentence summary>",
   "causes": ["…","…","…"],
   "solutions": ["…","…","…"]
-}` }
+}`,
+        },
       ],
     })
 
-    // The LLM will reply with JSON text; we parse it
     const text = chat.choices[0].message.content!
+    // parse into a strongly-typed shape
     const data = JSON.parse(text) as {
       title: string
-      urgency: 'Low'|'Medium'|'High'
+      urgency: 'Low' | 'Medium' | 'High'
       description: string
       causes: string[]
       solutions: string[]
     }
 
     return NextResponse.json(data)
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err: unknown) {
+    // Narrow the error to a string message
+    const message =
+      err instanceof Error
+        ? err.message
+        : 'An unknown error occurred'
+    return NextResponse.json(
+      { error: message },
+      { status: 500 }
+    )
   }
 }

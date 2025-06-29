@@ -1,155 +1,234 @@
-// File: src/components/ProblemSolver.tsx
 'use client'
 
-import { useState, FormEvent } from 'react'
-import {
-  FaSearch,
-  FaExclamationTriangle,
-  FaPlus,
-  FaCheck,
-} from 'react-icons/fa'
+import { useEffect, useState } from 'react'
 
-interface Diagnosis {
-  title: string
-  urgency: 'Low' | 'Medium' | 'High'
-  description: string
-  causes: string[]
-  solutions: string[]
+interface Engine {
+  id: number
+  name: string
 }
 
-export default function ProblemSolver() {
-  const [prompt, setPrompt] = useState('')
+interface Issue {
+  id: string
+  description: string
+}
+
+export default function CommonIssues() {
+  const [makes, setMakes] = useState<string[]>([])
+  const [models, setModels] = useState<string[]>([])
+  const [engines, setEngines] = useState<Engine[]>([])
+  const [issues, setIssues] = useState<Issue[]>([])
+
+  const [make, setMake] = useState('')
+  const [model, setModel] = useState('')
+  const [year, setYear] = useState('')
+  const [engineId, setEngineId] = useState<number | ''>('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [result, setResult] = useState<Diagnosis | null>(null)
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!prompt.trim()) return
+  // 1️⃣ Load makes on mount
+  useEffect(() => {
+    fetch('/api/makes')
+      .then(res => res.json() as Promise<{ data: { name: string }[] }>)
+      .then(json => {
+        const list = json.data.map(i => i.name).sort()
+        setMakes(list)
+      })
+      .catch(err => {
+        setError(`Failed to load makes: ${err instanceof Error ? err.message : err}`)
+      })
+  }, [])
 
+  // 2️⃣ Load models when `make` changes
+  useEffect(() => {
+    if (!make) {
+      setModels([])
+      setModel('')
+      return
+    }
+
+    fetch(`/api/models?make=${encodeURIComponent(make)}`)
+      .then(res => res.json() as Promise<{ data: string[] }>)
+      .then(json => {
+        const list = json.data.sort()
+        setModels(list)
+      })
+      .catch(err => {
+        setError(`Failed to load models: ${err instanceof Error ? err.message : err}`)
+      })
+  }, [make])
+
+  // 3️⃣ Load engines when `make`, `model`, or `year` changes
+  useEffect(() => {
+    if (!make || !model || !year) {
+      setEngines([])
+      setEngineId('')
+      return
+    }
+
+    fetch(
+      `/api/engines?make=${encodeURIComponent(make)}&model=${encodeURIComponent(
+        model
+      )}&year=${encodeURIComponent(year)}`
+    )
+      .then(
+        res =>
+          res.json() as Promise<{
+            data: { id: number; name: string }[]
+          }>
+      )
+      .then(json => {
+        const list: Engine[] = json.data.map(e => ({
+          id: e.id,
+          name: e.name,
+        }))
+        setEngines(list)
+      })
+      .catch(err => {
+        setError(`Failed to load engines: ${err instanceof Error ? err.message : err}`)
+      })
+  }, [make, model, year])
+
+  // 4️⃣ Ask AI for common issues
+  const fetchIssues = () => {
+    if (!engineId || !year) {
+      setError('Please select both Year and Engine')
+      return
+    }
     setError('')
     setLoading(true)
-    setResult(null)
+    setIssues([])
 
-    try {
-      const res = await fetch('/api/diagnostics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+    fetch('/api/common-issues', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        make,
+        model,
+        year,
+        engine: engines.find(e => e.id === engineId)!.name,
+      }),
+    })
+      .then(res =>
+        res.json() as Promise<{ data: Issue[]; error?: string }>
+      )
+      .then(json => {
+        if (json.error) throw new Error(json.error)
+        setIssues(json.data)
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Something went wrong')
-      setResult(json)
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+      .catch(err => {
+        setError(err instanceof Error ? err.message : String(err))
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   }
 
   return (
-    <section
-      id="diagnostics"
-      className="bg-[#111111] text-white px-6 sm:px-20 py-20"
-    >
-      {/* Title */}
-      <h2 className="text-3xl sm:text-4xl font-bold text-center mb-2">
-        AI Car Problem Solver
+    <section id="common-problems" className="bg-[#111111] text-white px-6 py-20">
+      <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-center">
+        Common Engine Problems
       </h2>
-      <p className="text-gray-400 text-center mb-8">
-        Describe your car’s symptoms and get instant solutions
+      <p className="text-gray-400 mb-12 text-center max-w-xl mx-auto">
+        Select your car, year, and engine to generate the most frequent issues.
       </p>
 
-      {/* Search Form */}
-      <form
-        onSubmit={handleSubmit}
-        className="flex max-w-3xl mx-auto overflow-hidden rounded-lg"
-      >
-        <input
-          type="text"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="e.g. rattling noises from engine"
-          className="flex-1 px-4 py-3 bg-[#1a1a1a] text-white placeholder-gray-400 focus:outline-none"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-yellow-400 px-4 flex items-center justify-center"
-        >
-          <FaSearch className="text-black" size={20} />
-        </button>
-      </form>
-
-      {/* Error */}
-      {error && (
-        <p className="text-red-500 text-center mt-4">{error}</p>
-      )}
-
-      {/* Result Card */}
-      {result && (
-        <div className="mt-12 max-w-4xl mx-auto bg-[#1a1a1a] rounded-xl overflow-hidden border border-gray-700">
-          {/* Header */}
-          <div className="bg-yellow-400 px-6 py-3">
-            <h3 className="text-xl font-semibold">{result.title}</h3>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Brand */}
+          <div>
+            <label className="text-sm block mb-1">Brand</label>
+            <select
+              value={make}
+              onChange={e => setMake(e.target.value)}
+              className="w-full bg-[#1a1a1a] border border-gray-600 px-3 py-2 rounded text-white"
+            >
+              <option value="">-- Select Brand --</option>
+              {makes.map(m => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="p-6 space-y-6">
-            {/* Urgency */}
-            <div className="flex items-center gap-2">
-              <FaExclamationTriangle className="text-red-500" />
-              <span className="font-medium">Urgency:</span>
-              <span
-                className={
-                  result.urgency === 'High'
-                    ? 'text-red-400'
-                    : result.urgency === 'Medium'
-                    ? 'text-yellow-300'
-                    : 'text-green-400'
-                }
-              >
-                {result.urgency}
-              </span>
-            </div>
+          {/* Model */}
+          <div>
+            <label className="text-sm block mb-1">Model</label>
+            <select
+              value={model}
+              disabled={!make}
+              onChange={e => setModel(e.target.value)}
+              className="w-full bg-[#1a1a1a] border border-gray-600 px-3 py-2 rounded text-white"
+            >
+              <option value="">-- Select Model --</option>
+              {models.map(m => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            {/* Description */}
-            <p className="text-gray-300">{result.description}</p>
+          {/* Year */}
+          <div>
+            <label className="text-sm block mb-1">Year</label>
+            <input
+              type="number"
+              value={year}
+              disabled={!model}
+              onChange={e => setYear(e.target.value)}
+              placeholder="e.g. 2020"
+              className="w-full bg-[#1a1a1a] border border-gray-600 px-3 py-2 rounded text-white"
+            />
+          </div>
 
-            {/* Causes & Solutions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Causes */}
-              <div>
-                <h4 className="text-white font-medium mb-2">
-                  Possible Causes
-                </h4>
-                <ul className="space-y-1">
-                  {result.causes.map((cause, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <FaPlus className="text-yellow-400 mt-1" />
-                      <span className="text-gray-200">{cause}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Solutions */}
-              <div>
-                <h4 className="text-white font-medium mb-2">
-                  Recommended Solutions
-                </h4>
-                <ul className="space-y-1">
-                  {result.solutions.map((sol, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <FaCheck className="text-green-400 mt-1" />
-                      <span className="text-gray-200">{sol}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+          {/* Engine */}
+          <div>
+            <label className="text-sm block mb-1">Engine / Trim</label>
+            <select
+              value={engineId}
+              disabled={!year}
+              onChange={e => setEngineId(+e.target.value || '')}
+              className="w-full bg-[#1a1a1a] border border-gray-600 px-3 py-2 rounded text-white"
+            >
+              <option value="">-- Select Engine --</option>
+              {engines.map(en => (
+                <option key={en.id} value={en.id}>
+                  {en.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
-      )}
+
+        {/* Fetch */}
+        <div className="text-center">
+          <button
+            onClick={fetchIssues}
+            disabled={loading}
+            className="bg-yellow-400 text-black px-4 py-2 rounded disabled:opacity-50"
+          >
+            {loading ? 'Generating…' : 'Get Common Issues'}
+          </button>
+        </div>
+
+        {/* Error */}
+        {error && <p className="text-red-500 text-center">{error}</p>}
+
+        {/* Results */}
+        {issues.length > 0 && (
+          <ul className="space-y-4">
+            {issues.map(issue => (
+              <li
+                key={issue.id}
+                className="bg-[#1a1a1a] p-4 rounded border border-gray-700"
+              >
+                {issue.description}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   )
 }
