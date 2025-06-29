@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   try {
     // 1️⃣ Get JWT token
     const tokenRes = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/auth/token`
+      `${process.env.NEXT_PUBLIC_BASE_URL || 'https://turbochip.vercel.app'}/api/auth/token`
     )
     const tokenJson = await tokenRes.json()
     const token = tokenJson.token
