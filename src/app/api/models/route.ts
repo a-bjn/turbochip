@@ -1,52 +1,49 @@
-import { NextResponse } from 'next/server'
+// File: src/app/api/models/route.ts
+import { NextResponse, type NextRequest } from "next/server";
 
-interface CarModel {
-  name: string
-}
-
-export async function GET(req: Request) {
-  const url = new URL(req.url)
-  const make = url.searchParams.get('make')
+export async function GET(req: NextRequest) {
+  const make = req.nextUrl.searchParams.get("make");
   if (!make) {
-    return NextResponse.json({ error: 'Missing make parameter' }, { status: 400 })
+    return NextResponse.json(
+      { error: "Missing `make` query parameter" },
+      { status: 400 }
+    );
   }
 
   try {
-    // 1️⃣ Get JWT token
-    const tokenRes = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'https://turbochip.vercel.app'}/api/auth/token`
-    )
-    const tokenJson = await tokenRes.json()
-    const token = tokenJson.token
-    if (!token) {
-      return NextResponse.json({ error: 'Failed to retrieve token' }, { status: 500 })
-    }
+    // 1️⃣ derive true origin (so this works on Vercel, not just localhost)
+    const origin = req.nextUrl.origin;
 
-    // 2️⃣ Fetch models from CarAPI v2 with the make filter
-    const carApiRes = await fetch(
+    // 2️⃣ grab our JWT
+    const authRes = await fetch(`${origin}/api/auth/token`);
+    if (!authRes.ok) {
+      const err = await authRes.text();
+      throw new Error("Auth error: " + err);
+    }
+    const { token } = await authRes.json();
+
+    // 3️⃣ call CarAPI models/v2
+    const carRes = await fetch(
       `https://carapi.app/api/models/v2?make=${encodeURIComponent(make)}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
+          Accept: "application/json",
         },
       }
-    )
-    if (!carApiRes.ok) {
-      const msg = await carApiRes.text()
-      return NextResponse.json({ error: 'CarAPI error', message: msg }, { status: 500 })
+    );
+    if (!carRes.ok) {
+      const msg = await carRes.text();
+      throw new Error("CarAPI /models error: " + msg);
     }
+    const data = await carRes.json();
 
-    // 3️⃣ Parse response and extract model names
-    const json = await carApiRes.json()
-    if (!Array.isArray(json.data)) {
-      return NextResponse.json({ error: 'Invalid models format' }, { status: 500 })
-    }
-    const models = (json.data as CarModel[]).map(item => item.name)
-
-    // 4️⃣ Return the names list
-    return NextResponse.json({ data: models })
-  } catch (error) {
-    return NextResponse.json({ error: 'Unexpected error', details: String(error) }, { status: 500 })
+    // 4️⃣ send it back
+    return NextResponse.json(data);
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e.message || "Unknown error" },
+      { status: 500 }
+    );
   }
 }

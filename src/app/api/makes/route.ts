@@ -1,34 +1,36 @@
-// File: src/app/api/makes/route.ts
-import { NextResponse } from 'next/server'
+// src/app/api/makes/route.ts
+import { NextResponse, type NextRequest } from "next/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    // Step 1: Fetch the JWT token from our internal auth route
-    const tokenRes = await fetch(`${origin}/api/auth/token`)
-    const tokenData = await tokenRes.json()
+    // derive the true origin (e.g. https://your-app.vercel.app)
+    const origin = req.nextUrl.origin;
 
-    if (!tokenRes.ok || !tokenData.token) {
-      return NextResponse.json({ error: 'Failed to retrieve token' }, { status: 500 })
+    // 1) grab our JWT from our own auth route
+    const authRes = await fetch(`${origin}/api/auth/token`);
+    if (!authRes.ok) {
+      const err = await authRes.text();
+      throw new Error("Failed to fetch auth token: " + err);
     }
+    const { token } = await authRes.json();
 
-    const token = tokenData.token
-
-    // Step 2: Use the token to fetch makes from CarAPI
-    const carApiRes = await fetch('https://carapi.app/api/makes/v2', {
+    // 2) call CarAPI
+    const carRes = await fetch("https://carapi.app/api/makes/v2", {
       headers: {
         Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
-      }
-    })
-
-    if (!carApiRes.ok) {
-      const msg = await carApiRes.text()
-      return NextResponse.json({ error: 'CarAPI error', message: msg }, { status: 500 })
+      },
+    });
+    if (!carRes.ok) {
+      const msg = await carRes.text();
+      throw new Error("CarAPI /makes error: " + msg);
     }
+    const data = await carRes.json();
 
-    const data = await carApiRes.json()
-    return NextResponse.json(data)
-  } catch (error) {
-    return NextResponse.json({ error: 'Unexpected error', details: String(error) }, { status: 500 })
+    return NextResponse.json(data);
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e.message || "Unknown error" },
+      { status: 500 }
+    );
   }
 }

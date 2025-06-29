@@ -1,25 +1,30 @@
 // src/app/api/auth/token/route.ts
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
 
 export async function GET() {
-  const res = await fetch('https://carapi.app/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  // build the POST to CarAPI’s /api/auth/token
+  const res = await fetch("https://carapi.app/api/auth/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/jwt"   // they return a bare JWT string
+    },
     body: JSON.stringify({
       api_token: process.env.CARAPI_KEY,
       api_secret: process.env.CARAPI_SECRET,
     }),
-  })
+  });
 
   if (!res.ok) {
+    const errText = await res.text();
     return NextResponse.json(
-      { error: 'Failed to authenticate with CarAPI' },
+      { error: "Auth-token error", details: errText },
       { status: 500 }
-    )
+    );
   }
 
-  // Read raw token string
-  const token = (await res.text()).trim()
+  // *** IMPORTANT *** CarAPI returns a raw JWT in the response body
+  const token = await res.text();
 
-  return NextResponse.json({ token })
+  return NextResponse.json({ token });
 }

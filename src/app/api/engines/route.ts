@@ -1,71 +1,55 @@
-import { NextResponse } from 'next/server'
+// File: src/app/api/engines/route.ts
+import { NextResponse, type NextRequest } from "next/server";
 
-interface CarApiEngine {
-  trim_id: string
-  trim: string
-  year: number
-  horsepower_hp: number
-  torque_ft_lbs: number
-}
+export async function GET(req: NextRequest) {
+  const url = req.nextUrl;
+  const make = url.searchParams.get("make");
+  const model = url.searchParams.get("model");
+  const year = url.searchParams.get("year");
 
-export async function GET(req: Request) {
-  const url = new URL(req.url)
-  const make = url.searchParams.get('make')
-  const model = url.searchParams.get('model')
-
-  if (!make || !model) {
+  if (!make || !model || !year) {
     return NextResponse.json(
-      { error: 'Missing make or model parameter' },
+      { error: "Missing one of `make`, `model`, or `year`" },
       { status: 400 }
-    )
+    );
   }
 
   try {
-    // 1) Fetch JWT
-    const tokenRes = await fetch(
-      `${origin}/api/auth/token`
-    )
-    const { token } = await tokenRes.json()
-    if (!token) {
-      return NextResponse.json({ error: 'Auth failed' }, { status: 500 })
-    }
+    // 1️⃣ origin
+    const origin = url.origin;
 
-    // 2) Fetch all engines for make+model (no year filter)
+    // 2️⃣ auth token
+    const authRes = await fetch(`${origin}/api/auth/token`);
+    if (!authRes.ok) {
+      const err = await authRes.text();
+      throw new Error("Auth error: " + err);
+    }
+    const { token } = await authRes.json();
+
+    // 3️⃣ CarAPI engines/v2
     const carRes = await fetch(
       `https://carapi.app/api/engines/v2?make=${encodeURIComponent(
         make
-      )}&model=${encodeURIComponent(model)}`,
+      )}&model=${encodeURIComponent(model)}&year=${encodeURIComponent(year)}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
+          Accept: "application/json",
         },
       }
-    )
+    );
     if (!carRes.ok) {
-      const text = await carRes.text()
-      return NextResponse.json({ error: text }, { status: 500 })
+      const msg = await carRes.text();
+      throw new Error("CarAPI /engines error: " + msg);
     }
+    const data = await carRes.json();
 
-    const json = await carRes.json()
-    if (!Array.isArray(json.data)) {
-      return NextResponse.json({ error: 'Unexpected response' }, { status: 500 })
-    }
-
-    // 3) Map to only the fields we need
-    const engines = (json.data as CarApiEngine[]).map((e) => ({
-      id: e.trim_id,
-      name: `${e.trim} (${e.year})`,
-      horsepower: e.horsepower_hp,
-      torque: e.torque_ft_lbs,
-    }))
-
-    return NextResponse.json({ data: engines })
-  } catch (err) {
-    const error = err instanceof Error ? err : new Error('Unknown error')
+    // 4️⃣ forward
+    return NextResponse.json(data);
+  } catch (e: any) {
     return NextResponse.json(
-      { error: 'Unexpected error', details: error.message },
+      { error: e.message || "Unknown error" },
       { status: 500 }
-    )
+    );
   }
 }
