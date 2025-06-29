@@ -1,29 +1,48 @@
-// File: src/app/api/models/route.ts
 import { NextResponse, type NextRequest } from "next/server";
+
+interface CarApiCollection {
+  url: string;
+  count: number;
+  pages: number;
+  total: number;
+  next: string;
+  prev: string;
+  first: string;
+  last: string;
+}
+
+interface Model {
+  id: number;
+  make_id: number;
+  make: string;
+  name: string;
+}
+
+interface CarApiModelsResponse {
+  collection: CarApiCollection;
+  data: Model[];
+}
 
 export async function GET(req: NextRequest) {
   const make = req.nextUrl.searchParams.get("make");
   if (!make) {
-    return NextResponse.json(
-      { error: "Missing `make` query parameter" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Missing `make` query parameter" }, { status: 400 });
   }
 
   try {
-    // 1️⃣ derive true origin (so this works on Vercel, not just localhost)
-    const origin = req.nextUrl.origin;
-
-    // 2️⃣ grab our JWT
-    const authRes = await fetch(`${origin}/api/auth/token`);
-    if (!authRes.ok) {
-      const err = await authRes.text();
-      throw new Error("Auth error: " + err);
+    const origin = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+    const tokenRes = await fetch(`${origin}/api/auth/token`);
+    if (!tokenRes.ok) {
+      return NextResponse.json({ error: "Failed to fetch auth token" }, { status: 500 });
     }
-    const { token } = await authRes.json();
+    const tokenJson = (await tokenRes.json()) as { token?: string };
+    if (!tokenJson.token) {
+      return NextResponse.json({ error: "Auth token missing in response" }, { status: 500 });
+    }
+    const token = tokenJson.token;
 
-    // 3️⃣ call CarAPI models/v2
-    const carRes = await fetch(
+    // fetch models for that make
+    const carApiRes = await fetch(
       `https://carapi.app/api/models/v2?make=${encodeURIComponent(make)}`,
       {
         headers: {
@@ -32,17 +51,18 @@ export async function GET(req: NextRequest) {
         },
       }
     );
-    if (!carRes.ok) {
-      const msg = await carRes.text();
-      throw new Error("CarAPI /models error: " + msg);
+    if (!carApiRes.ok) {
+      const text = await carApiRes.text();
+      return NextResponse.json({ error: "CarAPI/models error", detail: text }, { status: 500 });
     }
-    const data = await carRes.json();
 
-    // 4️⃣ send it back
-    return NextResponse.json(data);
-  } catch (e: any) {
+    const json = (await carApiRes.json()) as CarApiModelsResponse;
+    // return just the array of names
+    const names = json.data.map((m) => m.name).sort();
+    return NextResponse.json({ data: names });
+  } catch (err: unknown) {
     return NextResponse.json(
-      { error: e.message || "Unknown error" },
+      { error: "Unexpected error in /api/models", detail: String(err) },
       { status: 500 }
     );
   }
